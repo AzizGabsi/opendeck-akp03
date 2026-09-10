@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2026-09-10
+
+### 🚀 Features
+
+- *(device)* Keep-alive task for devices with modern firmware (#45)
+
+### ⚙️ Miscellaneous Tasks
+
+- Add AI_POLICY.md and AGENTS.md
+- Issues and pull request templates
+- Typo
+
 ## [0.10.1] - 2026-08-09
 
 ### 🚀 Features

@@ -1,8 +1,8 @@
 ![Plugin Icon](assets/icon.png)
 
-# OpenDeck Ajazz AKP03 / Mirabox N3 Plugin
+# OpenDeck Ajazz AKP05 / Mirabox N4 Plugin
 
-An unofficial plugin for Mirabox N3-family devices
+An unofficial plugin for Mirabox N4-family devices
 
 ## OpenDeck version
 
@@ -10,29 +10,64 @@ Requires OpenDeck 2.5.0 or newer
 
 ## Supported devices
 
-- Ajazz AKP03 (0300:1001)
-- Ajazz AKP03E (0300:1002)
-- Ajazz AKP03R (0300:1003)
-- Ajazz AKP03E (rev. 2) (0300:3002)
-- Ajazz AKP03R (rev. 2) (0300:3003)
-- Mirabox N3 (6602:1000, 6602:1002, 6603:1002, 6603:1003)
-- Soomfon Stream Controller SE (1500:3001)
-- Mars Gaming MSD-TWO (0B00:1001)
-- TreasLin N3 (5548:1001)
-- Redragon Skyrider SS-551 (0200:2000)
+- Mirabox N4E (6603:1007)
+- Mirabox N4 (6602:1001)
+- Mirabox N4 Pro E (5548:1021)
+- Mirabox N4 Pro (5548:1008)
+- Ajazz AKP05E (0300:3004)
+- Ajazz AKP05E Pro (0300:3013)
+- Ajazz AKP05 (0300:3006)
+- VSDInside N4 (5548:1004)
+- VSDInside N4 Pro (5548:1023)
+- Mars Gaming MSD-Pro (0B00:1003)
+- Soomfon CN003 (1500:3002)
+- Streonor S10 Pro (1500:3007)
+- Redragon SS552 (0200:3001)
 
 ## Platform support
 
 - Linux: Guaranteed, if stuff breaks - I'll probably catch it before public release
-- Mac: Best effort, no tests before release, things may break, but I probably have means to fix them
+- Mac: Zero effort, no tests before release, if stuff breaks - too bad, it's up to you to contribute fixes
 - Windows: Zero effort, no tests before release, if stuff breaks - too bad, it's up to you to contribute fixes
 
 ## Installation
 
-1. Download an archive from [releases](https://github.com/4ndv/opendeck-akp03/releases)
+1. Download an archive from [releases](https://github.com/ambiso/opendeck-akp05/releases)
 2. In OpenDeck: Plugins -> Install from file
-3. Download [udev rules](./40-opendeck-akp03.rules) and install them by copying into `/etc/udev/rules.d/` and running `sudo udevadm control --reload-rules`
+3. Download [udev rules](./40-opendeck-akp05.rules) and install them by copying into `/etc/udev/rules.d/` and running `sudo udevadm control --reload-rules`
 4. Unplug and plug again the device, restart OpenDeck
+
+## Knob LED configuration
+
+By default no LED commands are sent, so the device keeps its own built-in effect.
+
+To configure the knob LEDs, create `~/.config/opendeck-akp05/leds.toml`.
+(Windows: `%APPDATA%\opendeck-akp05\leds.toml`, macOS: `~/Library/Application Support/opendeck-akp05/leds.toml`)
+
+All LEDs the same color:
+
+```toml
+brightness = 100 # 0-100
+
+[mode.Static]
+colors = [[255, 0, 128]] # RGB
+```
+
+Each LED a different color:
+
+```toml
+brightness = 100 # 0-100
+
+[mode.Static]
+colors = [
+    [255, 0,   0  ], # RGB knob 1
+    [0,   255, 0  ], # RGB knob 2
+    [0,   0,   255], # RGB knob 3
+    [255, 255, 0  ], # RGB knob 4
+]
+```
+
+When OpenDeck is being terminated, a disconnect signal is sent to the device, which results in a hardcoded red for all knobs.
 
 ## Adding new devices
 
@@ -63,6 +98,14 @@ rustup target add x86_64-pc-windows-gnu
 rustup target add x86_64-unknown-linux-gnu
 ```
 
+### Preparing environment
+
+```sh
+$ just prepare
+```
+
+This will build docker image for macOS crosscompilation
+
 ### Building a release package
 
 ```sh
@@ -72,3 +115,10 @@ $ just package
 ## Acknowledgments
 
 This plugin is heavily based on work by contributors of [elgato-streamdeck](https://github.com/streamduck-org/elgato-streamdeck) crate
+
+Further inspiration was taken from these sister repos:
+- https://github.com/naerschhersch/opendeck-akp05
+- https://github.com/GrauBlitz/opendeck-akp05
+- https://github.com/maillota/opendeck-akp05
+
+The icon was yoinked from https://github.com/naerschhersch/opendeck-akp05/

@@ -11,6 +11,7 @@ use tokio::signal::unix::{SignalKind, signal};
 
 mod device;
 mod inputs;
+mod led_config;
 mod mappings;
 mod watcher;
 
@@ -46,13 +47,8 @@ impl openaction::GlobalEventHandler for GlobalEventHandler {
         event: SetImageEvent,
         _outbound: &mut OutboundEventManager,
     ) -> EventHandlerResult {
-        log::debug!("Asked to set image: {:#?}", event);
-
-        // Skip knobs images
-        if event.controller == Some("Encoder".to_string()) {
-            log::debug!("Looks like a knob, no need to set image");
-            return Ok(());
-        }
+        log::debug!("Asked to set image");
+        log::trace!("Set image event: {:#?}", event);
 
         let id = event.device.clone();
 
@@ -85,23 +81,6 @@ impl openaction::GlobalEventHandler for GlobalEventHandler {
                 .ok();
         } else {
             log::error!("Received event for unknown device: {}", event.device);
-        }
-
-        Ok(())
-    }
-
-    async fn system_did_wake_up(
-        &self,
-        _event: SystemDidWakeUpEvent,
-        outbound: &mut OutboundEventManager,
-    ) -> EventHandlerResult {
-        log::info!("The system is woke now, resetting devices");
-
-        let devices = DEVICES.write().await;
-
-        for (id, device) in devices.iter() {
-            let _ = device.reset().await;
-            let _ = outbound.rerender_images(id.to_string()).await;
         }
 
         Ok(())
@@ -146,13 +125,7 @@ async fn sigterm() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    simplelog::TermLogger::init(
-        simplelog::LevelFilter::Info,
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Stdout,
-        simplelog::ColorChoice::Never,
-    )
-    .unwrap();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     tokio::select! {
         _ = connect() => {},

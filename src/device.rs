@@ -4,11 +4,14 @@ use data_url::DataUrl;
 use image::load_from_memory_with_format;
 use mirajazz::{device::Device, error::MirajazzError, state::DeviceStateUpdate};
 use openaction::{OUTBOUND_EVENT_MANAGER, SetImageEvent};
+use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    DEVICES, TOKENS,
-    mappings::{COL_COUNT, CandidateDevice, ENCODER_COUNT, KEY_COUNT, Kind, ROW_COUNT},
+    DEVICES, TOKENS, led_config,
+    mappings::{
+        COL_COUNT, CandidateDevice, DEVICE_TYPE, ENCODER_COUNT, KEY_COUNT, Kind, ROW_COUNT,
+    },
 };
 
 /// Initializes a device and listens for events
@@ -16,15 +19,35 @@ pub async fn device_task(candidate: CandidateDevice, token: CancellationToken) {
     log::info!("Running device task for {:?}", candidate);
 
     // Wrap in a closure so we can use `?` operator
-    let device = async || -> Result<Device, MirajazzError> {
+    let device = async {
         let device = connect(&candidate).await?;
 
         device.set_brightness(50).await?;
         device.clear_all_button_images().await?;
         device.flush().await?;
 
+        let led = led_config::load();
+        log::info!("Applying LED config: {:?}", led);
+
+        // The Redragon SS552 has a hardware knob-LED brightness control, but
+        // its built-in effect is used by default. Force that brightness to
+        // maximum without replacing the device's built-in LED effect.
+        let force_max_led_brightness = matches!(candidate.kind, Kind::SS552);
+
+        if let Some(led_config::LedMode::Static { colors }) = led.mode {
+            let brightness = if force_max_led_brightness {
+                100
+            } else {
+                led.brightness
+            };
+            device.set_led_brightness(brightness).await?;
+            device.set_led_colors(&colors).await?;
+        } else if force_max_led_brightness {
+            device.set_led_brightness(100).await?;
+        }
+
         Ok(device)
-    }()
+    }
     .await;
 
     let device: Device = match device {
@@ -50,7 +73,7 @@ pub async fn device_task(candidate: CandidateDevice, token: CancellationToken) {
                 ROW_COUNT as u8,
                 COL_COUNT as u8,
                 ENCODER_COUNT as u8,
-                0,
+                DEVICE_TYPE,
             )
             .await
             .unwrap();
@@ -60,7 +83,7 @@ pub async fn device_task(candidate: CandidateDevice, token: CancellationToken) {
 
     tokio::select! {
         _ = device_events_task(&candidate) => {},
-        _ = device_keep_alive_task(&candidate) => {},
+        _ = keepalive_task(&candidate) => {},
         _ = token.cancelled() => {}
     };
 
@@ -101,23 +124,6 @@ pub async fn handle_error(id: &String, err: MirajazzError) -> bool {
 }
 
 pub async fn connect(candidate: &CandidateDevice) -> Result<Device, MirajazzError> {
-    let firmware_version = Device::read_firmware_version(&candidate.dev).await;
-
-    let firmware_version = match firmware_version {
-        Ok(fw) => fw,
-        Err(e) => {
-            log::error!("Failed to read firmware version from {}", &candidate.id);
-
-            return Err(e);
-        }
-    };
-
-    log::info!(
-        "Connecting to {} with fw {:?}",
-        &candidate.id,
-        &firmware_version
-    );
-
     let result = Device::connect(
         &candidate.dev,
         candidate.kind.protocol_version(),
@@ -127,7 +133,10 @@ pub async fn connect(candidate: &CandidateDevice) -> Result<Device, MirajazzErro
     .await;
 
     match result {
-        Ok(device) => Ok(device),
+        Ok(device) => {
+            Ok(device
+                .with_supports_both_encoder_states(candidate.kind.supports_both_encoder_states()))
+        }
         Err(e) => {
             log::error!("Error while connecting to device: {e}");
 
@@ -152,7 +161,7 @@ async fn device_events_task(candidate: &CandidateDevice) -> Result<(), MirajazzE
     log::info!("Reader is ready for {}", candidate.id);
 
     loop {
-        log::info!("Reading updates...");
+        log::debug!("Reading updates...");
 
         let updates = match reader.read(None).await {
             Ok(updates) => updates,
@@ -166,7 +175,7 @@ async fn device_events_task(candidate: &CandidateDevice) -> Result<(), MirajazzE
         };
 
         for update in updates {
-            log::info!("New update: {:#?}", update);
+            log::debug!("New update: {:#?}", update);
 
             let id = candidate.id.clone();
 
@@ -194,28 +203,66 @@ async fn device_events_task(candidate: &CandidateDevice) -> Result<(), MirajazzE
     Ok(())
 }
 
-pub async fn device_keep_alive_task(candidate: &CandidateDevice) -> Result<(), MirajazzError> {
-    log::info!("Starting keep alive task for {}", candidate.id);
+/// Sends periodic keepalives to the device to maintain connection
+async fn keepalive_task(candidate: &CandidateDevice) -> Result<(), MirajazzError> {
+    let mut interval = interval(Duration::from_secs(10));
 
     loop {
-        log::debug!("Sending keep alive request");
+        interval.tick().await;
+
+        log::debug!("Sending keepalive to {}", candidate.id);
 
         let devices_lock = DEVICES.read().await;
-        match devices_lock.get(&candidate.id) {
-            Some(device) => device.keep_alive().await?,
+        let device = match devices_lock.get(&candidate.id) {
+            Some(device) => device,
             None => return Ok(()),
         };
-        drop(devices_lock);
 
-        tokio::time::sleep(Duration::from_secs(15)).await;
+        if let Err(e) = device.keep_alive().await {
+            drop(devices_lock);
+            if !handle_error(&candidate.id, e).await {
+                break;
+            }
+        }
     }
+
+    Ok(())
+}
+
+fn map_position(mut position: u8, is_encoder: bool) -> Result<u8, MirajazzError> {
+    if is_encoder {
+        position += 10;
+    }
+    let position = match position {
+        0 => 10,
+        1 => 11,
+        2 => 12,
+        3 => 13,
+        4 => 14,
+        5 => 5,
+        6 => 6,
+        7 => 7,
+        8 => 8,
+        9 => 9,
+        10 => 0,
+        11 => 1,
+        12 => 2,
+        13 => 3,
+        _ => {
+            log::error!("Invalid key position");
+            return Err(MirajazzError::BadData);
+        }
+    };
+    Ok(position)
 }
 
 /// Handles different combinations of "set image" event, including clearing the specific buttons and whole device
 pub async fn handle_set_image(device: &Device, evt: SetImageEvent) -> Result<(), MirajazzError> {
+    let is_encoder = evt.controller.as_deref() == Some("Encoder");
     match (evt.position, evt.image) {
         (Some(position), Some(image)) => {
-            log::info!("Setting image for button {}", position);
+            log::debug!("Setting image for button {}", position);
+            let position = map_position(position, is_encoder)?;
 
             // OpenDeck sends image as a data url, so parse it using a library
             let url = DataUrl::process(image.as_str()).unwrap(); // Isn't expected to fail, so unwrap it is
@@ -233,15 +280,22 @@ pub async fn handle_set_image(device: &Device, evt: SetImageEvent) -> Result<(),
             device
                 .set_button_image(
                     position,
-                    Kind::from_vid_pid(device.vid, device.pid)
-                        .unwrap()
-                        .image_format(),
+                    if is_encoder {
+                        Kind::from_vid_pid(device.vid, device.pid)
+                            .unwrap()
+                            .touch_image_format()
+                    } else {
+                        Kind::from_vid_pid(device.vid, device.pid)
+                            .unwrap()
+                            .image_format()
+                    },
                     image,
                 )
                 .await?;
             device.flush().await?;
         }
         (Some(position), None) => {
+            let position = map_position(position, is_encoder)?;
             device.clear_button_image(position).await?;
             device.flush().await?;
         }

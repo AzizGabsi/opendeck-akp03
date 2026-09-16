@@ -2,100 +2,73 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.11.0] - 2026-09-10
+## [0.10.3] - 2026-07-05
 
-### 🚀 Features
+Add Streonor S10 Pro device support
 
-- *(device)* Keep-alive task for devices with modern firmware (#45)
+## [0.10.2] - 2026-05-01
 
-### ⚙️ Miscellaneous Tasks
+Fix macos compile
 
-- Add AI_POLICY.md and AGENTS.md
-- Issues and pull request templates
-- Typo
+## [0.10.1] - 2026-05-01
 
-## [0.10.1] - 2026-08-09
+Add support for AKP05CN Pro
 
-### 🚀 Features
+## [0.10.0] - 2026-03-07
 
-- *(device)* Add support for N3 (6602:1000), supersedes #39 and #42
+LED config support (Pro versions only)
 
-### 💼 Other
+## [0.9.3] - 2026-03-07
 
-- *(just)* Allow to set specific version for release command
+Add support for AKP 05 (non-E variant)
 
-### 🚜 Refactor
+## [0.9.2] - 2026-02-17
 
-- Make pids non-specific constants
-- Don't try and guess revisions or versions for N3
+Add support for Redragon SS552
 
-## [0.10.0] - 2026-08-01
+## [0.9.1] - 2026-01-24
 
-### 🚀 Features
+Add support for all mirabox devices and VSDInside N4 Pro
 
-- *(device)* Reset and rerender images on system wake
+## [0.9.0] - 2026-01-21
 
-### 💼 Other
+Encoder presses are now released
 
-- *(deps)* Bump mirajazz to 0.16.2
+Send periodic keep-alives (might fix issues with VSD Inside devices)
 
-## [0.9.0] - 2026-07-31
+Use env_logger so now you can run `RUST_LOG=opendeck_akp05=trace opendeck` and get trace output info at `$HOME/.local/share/opendeck/logs/plugins/com.github.ambiso.opendeck-akp05.sdPlugin.log`.
 
-### 🐛 Bug Fixes
+## [0.8.6] - 2026-01-21
 
-- *(device)* Correct image_format for protocol_version 3 (#37)
+Add Mars Gaming MSD Pro support
 
-### 💼 Other
+Add Soomfon CN003 support
 
-- *(deps)* Bump mirajazz to 0.16.0
+## [0.8.5] - 2025-12-25
 
-## [0.8.1] - 2026-03-18
+Add VSDInside N4 Pro support
 
-### 🐛 Bug Fixes
+## [0.8.4] - 2025-12-09
 
-- *(windows)* Fix crash due to firmware version read panic
+Fix name and icon
 
-### ⚙️ Miscellaneous Tasks
+## [0.8.3] - 2025-12-09
 
-- Remove Dockerfile.macos-cross
+Fix id in justfile
 
-## [0.8.0] - 2026-03-17
+## [0.8.2] - 2025-12-09
 
-### 🚀 Features
+Rename from opendeck-akp05e to opendeck-akp05
 
-- *(device)* Add support for n3cn3 (#27)
-- *(device)* Read firmware version when connecting to device
+## [0.8.1] - 2025-12-09
 
-### 🐛 Bug Fixes
+Less log spam & ignore touchscreen swipes (fixes hang)
 
-- Set correct queries length
-- *(udev)* Hexadecimals must be lowercase
+## [0.8.0] - 2025-12-09
 
-### 💼 Other
+Initial release for AKP-05
 
-- *(deps)* Bump mirajazz to 0.11.2
-
-### ⚙️ Miscellaneous Tasks
-
-- Readme
-- Mappings wording
-- Remove `just prepare` from readme
-
-## [0.7.5] - 2026-02-27
-
-### 🚀 Features
-
-- *(device)* Add support for Ajazz AKP03R (rev. 2) (#24)
-
-### 🐛 Bug Fixes
-
-- *(udev)* Typo in mode
-
-## [0.7.4] - 2025-11-23
-
-### 🚀 Features
-
-- Move some debug logs to info
+---
 
 ## [0.7.3] - 2025-10-25
 
